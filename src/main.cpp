@@ -1,7 +1,7 @@
 #include <Arduino.h>
-#include <Encoder.h>
 
-class DCMotor {
+class DCMotor
+{
   public:
     uint8_t CCW;
     uint8_t CW;
@@ -29,7 +29,7 @@ class DCMotor {
     }
 
     // writes the voltage to the pin
-    void set_voltage(int voltage)
+    void set_voltage(float voltage)
     {
       if (voltage < 0)
       {
@@ -37,6 +37,8 @@ class DCMotor {
         set_direction(_current_direction);         // send cmd to motor
         voltage = -1*voltage;                      // change sign on voltage
       }
+
+      voltage = constrain(voltage, 0, 12);         // constrain the amount
       long pwm = map(voltage, 0, 12, 0, 255);      // map voltage to pwm
       analogWrite(_PWM_pin, pwm);                  // send the signal
     }
@@ -90,14 +92,13 @@ class StepperMotor
 };
 
 
-class Z_Controller{
+class Z_Controller
+{
   public:
     // constructor
-    Z_Controller(StepperMotor &z_stepper_motor,
-                 Encoder &z_encoder):
+    Z_Controller(StepperMotor &z_stepper_motor):
     // initializer list
     _z_stepper{z_stepper_motor},
-    _z_encoder{z_encoder},
     _current_position{0}
     {
       // setup code goes here
@@ -131,7 +132,6 @@ class Z_Controller{
 
   private:
     StepperMotor _z_stepper;
-    Encoder _z_encoder;
     long _current_position;
     long _target_position;
     unsigned long _delay;
@@ -139,65 +139,101 @@ class Z_Controller{
 };
 
 
-class Brush_Controller {
+class Brush_Controller
+{
   public:
+    // variables
+    const unsigned int MAX_RPM;
+
     // constructor
-    Brush_Controller(DCMotor &brush_motor):
+    Brush_Controller(DCMotor &brush_motor, const unsigned int MAX_RPM):
     // initializer list
-    _brush_motor{brush_motor}
+    _brush_motor{brush_motor},
+    MAX_RPM{MAX_RPM}
     {
-      // setup code goes here
+      _t_cutoff = 60000/MAX_RPM;
     }
 
     // isr that reads the signal from the hall effect sensor
     // indicating that a full revolution of the dc motor has been achieved
     void read_high()
     {
-      _high_time_1 = _high_time_2;
-      _high_time_2 = millis();
+      _ping = millis();
     }
 
     // setter for the speed
-    void set_speed(uint8_t rps)
+    void set_speed(unsigned int rpm)
     {
-      _target_rps = rps;
+      _target_rpm = rpm;
+      _target_delay = 60000/rpm;
     }
 
     // function that implements the PI controller for
     // controlling the rps of the dc motor
-    void update()
+    void update(unsigned long &cur_time)
     {
-      // make it an actual PI controller
-      _rps = (double)(1000/(_high_time_2 - _high_time_1));
-      if (_rps < 1.0){_rps = 1;}
-      float dV = 0.001*(_target_rps - _rps);
-      _V = _V + dV;
-      _brush_motor.set_voltage(_V);
-      Serial.print(_rps);
-      Serial.print(" ");
-      Serial.println(_V);
+      // compute all the the time variables shifts
+      noInterrupts();  // turn off interrupts
+      if (_ping - _last_ping > _t_cutoff)
+      {
+        _new_time = _ping;       // t' = p'
+        _old_time = _last_ping;  // to = po
+        _last_ping = _ping;      // po = p'
+      }
+      interrupts();    // turn on interrupts
 
+      // compute dt terms
+      _dt_signal = (cur_time - _old_time > _target_delay) ? cur_time - _old_time :
+                                                            _new_time - _old_time;
+      _dt_loop = _dt_loop ? cur_time - _old_time : 0;
+
+      // compute controller terms
+      _E = (long)(_dt_signal - _target_delay);  // error term
+      _Esum += (float)_E*_dt_loop;              // error integration term
+      _P = (float)_KP*_E;                       // proportional control component
+      _I = (float)_KI*_Esum;                    // integral control component
+      _dV = _P + _I;                            // change in voltage signal
+      _V += _dV;                                // current voltage signal
+      _brush_motor.set_voltage(_V);             // write out the voltage
+
+      Serial.print(" dt = "); Serial.print(_dt_signal);
+      Serial.print(" Esum = "); Serial.print(_Esum);
+      Serial.print(" dV = "); Serial.print(_dV);
+      Serial.print(" V = "); Serial.println(_V);
     }
-
-
 
   private:
     DCMotor _brush_motor;
-    unsigned long _high_time_1 = 0;
-    unsigned long _high_time_2 = 1000;
-    double _rps = 0;
-    double _V = 0;
-    uint8_t _target_rps = 0;
+    // cutoff and targets
+    unsigned long _t_cutoff;
+    unsigned int _target_rpm{0};
+    unsigned long _target_delay{0};
+    // time variables
+    unsigned long _ping{0};
+    unsigned long _last_ping{0};
+    unsigned long _new_time{0};
+    unsigned long _old_time{0};
+    unsigned long _dt_signal{0};
+    unsigned long _dt_loop{0};
+    unsigned long _old_cur_time{0};
+    // voltage and control variables
+    long _E{0};
+    float _Esum{0};
+    float _P{0};
+    float _KP{1e-6};
+    float _I{0};
+    float _KI{1};
+    float _dV{0};
+    float _V{0};
 };
 
 // set up the stepper motors
-Encoder z_encoder(4, 5);                          // encoder for z axis
-StepperMotor z_stepper(50, 51, HIGH);               // stepper for z axis
-Z_Controller z_controller(z_stepper, z_encoder);  // controller
+StepperMotor z_stepper(50, 51, HIGH);  // stepper for z axis
+Z_Controller z_controller(z_stepper);  // controller
 
 // set up the DC motor
-DCMotor brush_motor(52, 53, 5, HIGH);  // dc motor for the brush array
-Brush_Controller brush_controller(brush_motor);         // controller for the brush array
+DCMotor brush_motor(11, 10, 5, HIGH);            // dc motor for the brush array
+Brush_Controller brush_controller(brush_motor, 200);  // controller for the brush array
 
 // create the time variable
 unsigned long time;
@@ -206,15 +242,16 @@ unsigned long time;
 void setup()
 {
   Serial.begin(9600);             // start coms
-  Serial.println("starting...");
-  // z controller commands
-  z_controller.set_position(0);
-  z_controller.move_to(2000);
-  z_controller.set_vel(50);
-  // brush_motor_commands
-  brush_controller.set_speed(2);
+  Serial.println("\nstarting...");
+
   // attach isr to the interupt pin
-  attachInterrupt(digitalPinToInterrupt(2), [](){brush_controller.read_high();}, RISING);
+  attachInterrupt(
+    digitalPinToInterrupt(2),
+    [](){brush_controller.read_high();},
+    RISING);
+
+  // dc motor test commands
+  brush_controller.set_speed(120);
 }
 
 
@@ -222,5 +259,5 @@ void loop()
 {
   time = millis();
   z_controller.update(time);
-  brush_controller.update();
+  brush_controller.update(time);
 }
