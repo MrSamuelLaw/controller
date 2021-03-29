@@ -80,6 +80,7 @@ class ZController
       set_target(-10000);        // set target past the top of the rod
       long count = 0;            // set the count
       long max_count = 50000;    // set max count
+      Serial.println("going up...");
       while (count < max_count)  // start the while loop
       {
         unsigned long now = millis();                  // update the clock
@@ -90,12 +91,16 @@ class ZController
       /* ------------- move back until button is not pushed ------------- */
       count = 0;                 // reset the count
       max_count = 10;            // set maxcount to small number
+      set_position(0);           // set temp home
+      set_target(50);            // set target
+      Serial.println("going down...");
       while (count < max_count)  // start the while loop
       {
         unsigned long now = millis();                                 // update the clock
         if (digitalRead(_probe_pin) == LOW){set_position(0); break;}  // check if button is no longer pressed
         else if (update(now)){count++;}                               // if step taken, update the count
       }
+      Serial.println("homed..");
     }
 
   private:

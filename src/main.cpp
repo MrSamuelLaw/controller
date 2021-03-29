@@ -24,7 +24,8 @@ unsigned long time;
 
 void setup()
 {
-  Serial.begin(9600);             // start coms
+  // start coms
+  Serial.begin(9600);
   Serial.println("\nstarting...");
 
   // attach isr to the interupt pin
@@ -35,6 +36,8 @@ void setup()
 
   // home the z axis
   z_controller.home();
+  z_controller.set_linear_vel(10);
+  z_controller.set_linear_target(50);
 }
 
 //   ________      ________ _   _ _______   _      ____   ____  _____
@@ -46,7 +49,7 @@ void setup()
 
 void loop()
 {
-  time = millis();
-  z_controller.update(time);
+  time = millis();            // update the time
+  z_controller.update(time);  // update the z-controller
   // brush_controller.update(time);
 }
