@@ -2,6 +2,7 @@
 #include <DCMotor.h>
 #include <StepperMotor.h>
 #include <ZController.h>
+#include <XController.h>
 #include <BrushController.h>
 
 //    _____ ______ _______ _    _ _____
@@ -12,8 +13,10 @@
 //  |_____/|______|  |_|   \____/|_|
 
 // set up the stepper motors
-StepperMotor z_stepper(3, 4, HIGH);       // stepper for z axis
-ZController z_controller(z_stepper, 6);  // controller
+StepperMotor z_stepper(3, 4, HIGH);      // stepper for z axis
+ZController z_controller(z_stepper, 6);  // controller for z axis
+StepperMotor x_stepper(7, 8, LOW);      // stepper for x axis
+XController x_controller(x_stepper, 9);  // controller for x axis
 
 // set up the DC motor
 DCMotor brush_motor(11, 10, 5, HIGH);                  // dc motor for the brush array
@@ -36,8 +39,15 @@ void setup()
 
   // home the z axis
   z_controller.home();
-  z_controller.set_linear_vel(10);
-  z_controller.set_linear_target(50);
+  z_controller.set_linear_vel(10);     // mm/s
+  z_controller.set_linear_target(10);  // mm
+
+  x_controller.home();
+  x_controller.set_linear_vel(10);     // mm/s
+  x_controller.set_linear_target(10);  // mm
+
+  // set the brush speed
+  brush_controller.set_speed(450);     // rpm
 }
 
 //   ________      ________ _   _ _______   _      ____   ____  _____
@@ -49,7 +59,8 @@ void setup()
 
 void loop()
 {
-  time = millis();            // update the time
-  z_controller.update(time);  // update the z-controller
-  // brush_controller.update(time);
+  time = millis();                // update the time
+  z_controller.update(time);      // update the z-controller
+  x_controller.update(time);      // update the x-controller
+  brush_controller.update(time);  // update the brush controller
 }

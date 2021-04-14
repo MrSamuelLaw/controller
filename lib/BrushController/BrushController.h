@@ -79,8 +79,7 @@ class Brush_Controller
       _E_old = _E_new;
 
       // print stuff out
-      // Serial.println(_V);
-      Serial.print(" dt = "); Serial.print(_dt_signal);
+      // Serial.print(" dt = "); Serial.print(_dt_signal);
       // Serial.print("rpm = "); Serial.print(60000/_dt_signal);
       // Serial.print(" P = "); Serial.print(_P);
       // Serial.print(" I = "); Serial.print(_I);
@@ -118,10 +117,10 @@ class Brush_Controller
     float _P{0};
     float _I{0};
     float _D{0};
-    float _K{1e-1};
-    float _KP{0.1};
-    float _KI{1e-4};
-    float _KD{1e-4};
+    float _K{1e-3};
+    float _KP{1};
+    float _KI{1e-3};
+    float _KD{2e-1};
     float _dV{0};
     float _V{0};
 };
