@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <DCMotor.h>
+#include <Encoder.h>
 #include <StepperMotor.h>
 #include <ZController.h>
 #include <XController.h>
@@ -13,14 +14,15 @@
 //  |_____/|______|  |_|   \____/|_|
 
 // set up the stepper motors
-StepperMotor z_stepper(3, 4, HIGH);      // stepper for z axis
+StepperMotor z_stepper(4, 5, HIGH);      // stepper for z axis
 ZController z_controller(z_stepper, 6);  // controller for z axis
 StepperMotor x_stepper(7, 8, LOW);      // stepper for x axis
 XController x_controller(x_stepper, 9);  // controller for x axis
 
 // set up the DC motor
-DCMotor brush_motor(11, 10, 5, HIGH);                  // dc motor for the brush array
-Brush_Controller brush_controller(brush_motor, 3000);   // controller for the brush array
+DCMotor brush_motor(12, 11, 10, HIGH);                          // dc motor for the brush array
+Encoder brush_encoder(2, 3);                                    // encoder for dc motor
+Brush_Controller brush_controller(brush_motor, brush_encoder);  // controller for the brush array
 
 // create the time variable
 unsigned long time;
@@ -31,23 +33,18 @@ void setup()
   Serial.begin(9600);
   Serial.println("\nstarting...");
 
-  // attach isr to the interupt pin
-  attachInterrupt(
-    digitalPinToInterrupt(2),
-    [](){brush_controller.read_high();},
-    RISING);
-
   // home the z axis
   z_controller.home();
   z_controller.set_linear_vel(10);     // mm/s
-  z_controller.set_linear_target(10);  // mm
+  z_controller.set_linear_target(30);  // mm
 
+  // home the x axis
   x_controller.home();
   x_controller.set_linear_vel(10);     // mm/s
-  x_controller.set_linear_target(10);  // mm
+  x_controller.set_linear_target(30);  // mm
 
   // set the brush speed
-  brush_controller.set_speed(450);     // rpm
+  brush_controller.set_speed(900);     // rpm
 }
 
 //   ________      ________ _   _ _______   _      ____   ____  _____
