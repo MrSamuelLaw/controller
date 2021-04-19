@@ -8,17 +8,20 @@
 class Brush_Controller
 {
   public:
-    // variables
-    const unsigned int MAX_RPM;
 
     // constructor
-    Brush_Controller(DCMotor &brush_motor, Encoder &encoder):
+    Brush_Controller(DCMotor &brush_motor, int encoder_pin1, int encoder_pin2):
     // initializer list
     _brush_motor{brush_motor},
-    _encoder{encoder}
+    _encoder{Encoder(encoder_pin1, encoder_pin2)}
     {
       // setup code goes here
       _time_old = millis();
+    }
+
+    void set_encoder(Encoder &encoder)
+    {
+      _encoder = encoder;
     }
 
     // setter for the speed
@@ -29,11 +32,12 @@ class Brush_Controller
       _target_freq = (float)1000/_target_delay;  // rot/sec = hz
     }
 
-    // utility to read the speed
-    uint8_t read()
+    int32_t read()
     {
       _q = _encoder.read();
       _encoder.write(0);
+      _q = abs(_q);
+      return _q;
     }
 
     // function that implements the PI controller for
@@ -41,7 +45,7 @@ class Brush_Controller
     void update(unsigned long &now)
     {
       // compute frequency
-      _dq = read();           // read change in angle
+      _dq = read();  // read change in angle
       _dt = now - _time_old;  // compute change in time
 
       // compute error terms if _dt != 0
@@ -76,7 +80,7 @@ class Brush_Controller
 
       // print stuff out
       // Serial.print(" dt = "); Serial.print(_dt_signal);
-      // Serial.print("rpm = "); Serial.print(60000/_dt_signal);
+      Serial.print("rpm = "); Serial.println(60*_signal_freq);
       // Serial.print(" P = "); Serial.print(_P);
       // Serial.print(" I = "); Serial.print(_I);
       // Serial.print(" D = "); Serial.print(_D);
@@ -88,7 +92,7 @@ class Brush_Controller
     Encoder _encoder;
 
     // constants
-    const uint16_t _CPR = 192;
+    const int _CPR = 192;
 
     // cutoff and targets
     unsigned long _t_cutoff;
@@ -97,7 +101,7 @@ class Brush_Controller
     float _target_freq{0};
 
     // signal variables
-    long _q{0};
+    int32_t _q{0};
     long _dq{0};
     long _dt{1};
     float _time_old{0};
