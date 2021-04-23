@@ -32,12 +32,34 @@ class Brush_Controller
       _target_freq = (float)1000/_target_delay;  // rot/sec = hz
     }
 
+    // reads and resets the count for the encoder
     int32_t read()
     {
-      _q = _encoder.read();
-      _encoder.write(0);
-      _q = abs(_q);
+      _q = _encoder.read();  // q1 - 0 = q1 = q
+      _encoder.write(0);     // reset count to prevent overflow
+      _q = abs(_q);          // our motor is one way, so we only need abs val
       return _q;
+    }
+
+    // emergency stop activated on pause
+    void e_stop(unsigned long &now)
+    {
+      // set q = 0
+      read();
+
+      // set error values to zero
+      _E_new = 0;
+      _E_old = 0;
+      _E_sum = 0;
+      _dEdt = 0;
+
+      // set voltage equal to zero
+      _V = 0;
+      _brush_motor.set_voltage(_V);
+
+      // update the time so the error term doesn
+      // skyrocket when the pause is ended.
+      _time_old = now;
     }
 
     // function that implements the PI controller for
@@ -79,8 +101,7 @@ class Brush_Controller
       _E_old = _E_new;
 
       // print stuff out
-      // Serial.print(" dt = "); Serial.print(_dt_signal);
-      Serial.print("rpm = "); Serial.println(60*_signal_freq);
+      // Serial.print("rpm = "); Serial.println(60*_signal_freq);
       // Serial.print(" P = "); Serial.print(_P);
       // Serial.print(" I = "); Serial.print(_I);
       // Serial.print(" D = "); Serial.print(_D);

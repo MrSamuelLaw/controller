@@ -19,7 +19,7 @@ class ZController
 
     }
 
-    /* Function sets the target position relative to the zero position
+    /* Function sets the target position relative to the current position
     using the steps per revolution and lead screw constant */
     void set_linear_target(float mm)
     {
@@ -54,6 +54,12 @@ class ZController
       _delay = 1000/steps_per_second;
     }
 
+    /* Function that returns delta in steps to target */
+    long delta()
+    {
+      return _target_position - _current_position;
+    }
+
     /* Calls the stepper motor to  move if it's not at it's target and
     enough time has passed. */
     bool update(unsigned long &cur_time)
@@ -73,7 +79,7 @@ class ZController
     the stepper motor one step at a time until it pushed the probe button,
     then it backs off one step at a time until the probe button is not pressed,
     this position is considered "home" or zero. */
-    void home()
+    bool home()
     {
       /* -------------- move up the rod to push the button -------------- */
       set_vel(200);              // set speed
@@ -93,11 +99,16 @@ class ZController
       max_count = 10;            // set maxcount to small number
       set_position(0);           // set temp home
       set_target(50);            // set target
-      Serial.println("going down...");
+      Serial.println("homing the z...");
       while (count < max_count)  // start the while loop
       {
         unsigned long now = millis();                                 // update the clock
-        if (digitalRead(_probe_pin) == LOW){set_position(0); break;}  // check if button is no longer pressed
+        // check if button is no longer pressed
+        if (digitalRead(_probe_pin) == LOW){
+          set_position(0);  // tell it where zero is
+          set_target(0);    // tell it to stay at zero
+          return true;
+        }
         else if (update(now)){count++;}                               // if step taken, update the count
       }
       Serial.println("homed..");
