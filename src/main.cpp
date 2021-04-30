@@ -1,29 +1,7 @@
 #include <Arduino.h>
-#include <DCMotor.h>
-#include <StepperMotor.h>
-#include <ZController.h>
-#include <XController.h>
-#include <BrushController.h>
+#include <MasterController.h>
 
-//    _____ ______ _______ _    _ _____
-//   / ____|  ____|__   __| |  | |  __ \
-//  | (___ | |__     | |  | |  | | |__) |
-//   \___ \|  __|    | |  | |  | |  ___/
-//   ____) | |____   | |  | |__| | |
-//  |_____/|______|  |_|   \____/|_|
-
-// set up the stepper motors
-StepperMotor z_stepper(3, 4, HIGH);      // stepper for z axis
-ZController z_controller(z_stepper, 6);  // controller for z axis
-StepperMotor x_stepper(7, 8, LOW);      // stepper for x axis
-XController x_controller(x_stepper, 9);  // controller for x axis
-
-// set up the DC motor
-DCMotor brush_motor(11, 10, 5, HIGH);                  // dc motor for the brush array
-Brush_Controller brush_controller(brush_motor, 3000);   // controller for the brush array
-
-// create the time variable
-unsigned long time;
+using namespace MasterController;
 
 void setup()
 {
@@ -31,36 +9,45 @@ void setup()
   Serial.begin(9600);
   Serial.println("\nstarting...");
 
-  // attach isr to the interupt pin
-  attachInterrupt(
-    digitalPinToInterrupt(2),
-    [](){brush_controller.read_high();},
-    RISING);
-
-  // home the z axis
+  // // home the z axis
   z_controller.home();
-  z_controller.set_linear_vel(10);     // mm/s
-  z_controller.set_linear_target(10);  // mm
+  z_controller.set_linear_vel(15);  // mm/s
 
+  // // home the x axis
   x_controller.home();
-  x_controller.set_linear_vel(10);     // mm/s
-  x_controller.set_linear_target(10);  // mm
+  x_controller.set_linear_vel(10);  // mm/s
 
   // set the brush speed
-  brush_controller.set_speed(450);     // rpm
+  brush_controller.set_speed(120);  // rpm
+
+  // attach pause interrupt
+  attachInterrupt(
+    digitalPinToInterrupt(PAUSE_PIN),  // pause pin 18
+    TOGGLE_PAUSE,                      // function to call
+    RISING                             // state that pin 18 must read for function to be called
+  );
+
+  // wait for user to press go
+  while (PAUSE_FLAG)
+  {
+    delay(1);  // prevent loop that goes so fast user input is not registered.
+  }
 }
 
-//   ________      ________ _   _ _______   _      ____   ____  _____
-//  |  ____\ \    / /  ____| \ | |__   __| | |    / __ \ / __ \|  __ \
-//  | |__   \ \  / /| |__  |  \| |  | |    | |   | |  | | |  | | |__) |
-//  |  __|   \ \/ / |  __| | . ` |  | |    | |   | |  | | |  | |  ___/
-//  | |____   \  /  | |____| |\  |  | |    | |___| |__| | |__| | |
-//  |______|   \/   |______|_| \_|  |_|    |______\____/ \____/|_|
 
+int i = 1;       // sub cycle counter
+int count = 11;  // total number of sub cycles
 void loop()
 {
-  time = millis();                // update the time
-  z_controller.update(time);      // update the z-controller
-  x_controller.update(time);      // update the x-controller
-  brush_controller.update(time);  // update the brush controller
+  // run 10 number of cycles
+  while (i <= count)
+  {
+    lower_tray();
+    raise_tray();
+    index_tray(i);
+    i++;
+    // stop the machine at the end
+    if (i == count){PAUSE_FLAG = true;}
+  }
+  update_all(time);
 }

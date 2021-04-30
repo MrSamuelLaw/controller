@@ -54,6 +54,12 @@ class XController
       _delay = 1000/steps_per_second;
     }
 
+    /* Function that returns delta in steps to target */
+    long delta()
+    {
+      return _target_position - _current_position;
+    }
+
     /* Calls the stepper motor to  move if it's not at it's target and
     enough time has passed. */
     bool update(unsigned long &cur_time)
@@ -73,14 +79,14 @@ class XController
     the stepper motor one step at a time until it pushed the probe button,
     then it backs off one step at a time until the probe button is not pressed,
     this position is considered "home" or zero. */
-    void home()
+    bool home()
     {
       /* -------------- move up the rod to push the button -------------- */
       set_vel(200);              // set speed
       set_target(-10000);        // set target past the top of the rod
       long count = 0;            // set the count
       long max_count = 50000;    // set max count
-      Serial.println("going up...");
+      Serial.println("homing the x...");
       while (count < max_count)  // start the while loop
       {
         unsigned long now = millis();                  // update the clock
@@ -93,14 +99,18 @@ class XController
       max_count = 10;            // set maxcount to small number
       set_position(0);           // set temp home
       set_target(50);            // set target
-      Serial.println("going down...");
       while (count < max_count)  // start the while loop
       {
-        unsigned long now = millis();                                 // update the clock
-        if (digitalRead(_probe_pin) == LOW){set_position(0); break;}  // check if button is no longer pressed
-        else if (update(now)){count++;}                               // if step taken, update the count
+        unsigned long now = millis();        // update the clock
+        if (digitalRead(_probe_pin) == LOW)  // check if button is no longer pressed
+        {
+          set_position(0);            // tell it where 0 is
+          set_target(0);              // tell it to stay at zero
+          Serial.println("homed..");  // show that we homed it
+          return;                     // exit the function
+        }
+        else if (update(now)){count++;}       // if step taken, update the count
       }
-      Serial.println("homed..");
     }
 
   private:
